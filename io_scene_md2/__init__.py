@@ -13,11 +13,11 @@
 
 
 bl_info = {
-        "name": "Quake 3 Model (.md3)",
-        "author": "Vitaly Verhovodov",
+        "name": "Quake 2 Model (.md2)",
+        "author": "Thomas Green",
         "blender": (2, 74, 0),
         "location": "File > Import-Export",
-        "description": "Quake 3 Model format (.md3)",
+        "description": "Quake 2 Model format (.md2)",
         "warning": "",
         "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/MD3",
         "tracker_url": "https://github.com/neumond/blender-md3/issues",
@@ -27,10 +27,10 @@ bl_info = {
 
 if "bpy" in locals():
     import importlib
-    if "import_md3" in locals():
-        importlib.reload(import_md3)
-    if "export_md3" in locals():
-        importlib.reload(export_md3)
+    if "import_md2" in locals():
+        importlib.reload(import_md2)
+    if "export_md2" in locals():
+        importlib.reload(export_md2)
 
 
 import bpy
@@ -38,38 +38,38 @@ from bpy.props import StringProperty
 from bpy_extras.io_utils import ImportHelper, ExportHelper
 
 
-class ImportMD3(bpy.types.Operator, ImportHelper):
-    '''Import a Quake 3 Model MD3 file'''
-    bl_idname = "import_scene.md3"
-    bl_label = 'Import MD3'
-    filename_ext = ".md3"
-    filter_glob = StringProperty(default="*.md3", options={'HIDDEN'})
+class ImportMD2(bpy.types.Operator, ImportHelper):
+    '''Import a Quake 2 Model MD2 file'''
+    bl_idname = "import_scene.md2"
+    bl_label = 'Import MD2'
+    filename_ext = ".md2"
+    filter_glob = StringProperty(default="*.md2", options={'HIDDEN'})
 
     def execute(self, context):
-        from .import_md3 import MD3Importer
-        MD3Importer(context)(self.properties.filepath)
+        from .import_md2 import MD2Importer
+        MD2Importer(context)(self.properties.filepath)
         return {'FINISHED'}
 
 
-class ExportMD3(bpy.types.Operator, ExportHelper):
-    '''Export a Quake 3 Model MD3 file'''
-    bl_idname = "export_scene.md3"
-    bl_label = 'Export MD3'
-    filename_ext = ".md3"
-    filter_glob = StringProperty(default="*.md3", options={'HIDDEN'})
+class ExportMD2(bpy.types.Operator, ExportHelper):
+    '''Export a Quake 3 Model MD2 file'''
+    bl_idname = "export_scene.md2"
+    bl_label = 'Export MD2'
+    filename_ext = ".md2"
+    filter_glob = StringProperty(default="*.md2", options={'HIDDEN'})
 
     def execute(self, context):
-        from .export_md3 import MD3Exporter
-        MD3Exporter(context)(self.properties.filepath)
+        from .export_md2 import MD2Exporter
+        MD2Exporter(context)(self.properties.filepath)
         return {'FINISHED'}
 
 
 def menu_func_import(self, context):
-    self.layout.operator(ImportMD3.bl_idname, text="Quake 3 Model (.md3)")
+    self.layout.operator(ImportMD2.bl_idname, text="Quake 2 Model (.md2)")
 
 
 def menu_func_export(self, context):
-    self.layout.operator(ExportMD3.bl_idname, text="Quake 3 Model (.md3)")
+    self.layout.operator(ExportMD2.bl_idname, text="Quake 2 Model (.md2)")
 
 
 def register():
