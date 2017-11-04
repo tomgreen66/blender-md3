@@ -13,17 +13,24 @@
 
 
 bl_info = {
-    "name": "Quake 3 Model (.md3)",
-    "author": "Vitaly Verhovodov",
-    "version": (0, 2, 0),
-    "blender": (2, 69, 0),
-    "location": "File > Import-Export > Quake 3 Model",
-    "description": "Quake 3 Model format (.md3)",
-    "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/MD3",
-    "tracker_url": "https://github.com/neumond/blender-md3/issues",
-    "category": "Import-Export",
-}
+        "name": "Quake 3 Model (.md3)",
+        "author": "Vitaly Verhovodov",
+        "blender": (2, 74, 0),
+        "location": "File > Import-Export",
+        "description": "Quake 3 Model format (.md3)",
+        "warning": "",
+        "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/MD3",
+        "tracker_url": "https://github.com/neumond/blender-md3/issues",
+        "support": 'TESTING',
+        "category": "Import-Export",
+        }
+
+if "bpy" in locals():
+    import importlib
+    if "import_md3" in locals():
+        importlib.reload(import_md3)
+    if "export_md3" in locals():
+        importlib.reload(export_md3)
 
 
 import bpy
