@@ -47,70 +47,54 @@ def texcoord_inverted(v):
 Header = AnyStruct('Header', (
     ('magic', '4s'),
     ('version', 'i'),
-    ('modelname', '64s', 1, string_from_bytes, string_to_bytes),
-    ('flags', 'i'),
-    ('nFrames', 'i'),
-    ('nTags', 'i'),
-    ('nSurfaces', 'i'),
+    ('skinwidth', 'i'),
+    ('skinheight', 'i'),
+    ('framesize', 'i'),
     ('nSkins', 'i'),
-    ('offFrames', 'i'),
-    ('offTags', 'i'),
-    ('offSurfaces', 'i'),
-    ('offEnd', 'i'),
-))
-
-Surface = AnyStruct('Surface', (
-    ('magic', '4s'),
-    ('name', '64s', 1, string_from_bytes, string_to_bytes),
-    ('flags', 'i'),
-    ('nFrames', 'i'),
-    ('nShaders', 'i'),
     ('nVerts', 'i'),
+    ('nTexCoords', 'i'),
     ('nTris', 'i'),
+    ('nGlCmds', 'i'),
+    ('nFrames', 'i'),
+    ('offSkins', 'i'),
+    ('offTexCoords', 'i'),
     ('offTris', 'i'),
-    ('offShaders', 'i'),
-    ('offST', 'i'),
-    ('offVerts', 'i'),
+    ('offFrames', 'i'),
+    ('offGlCmds', 'i'),
     ('offEnd', 'i'),
 ))
 
-Frame = AnyStruct('Frame', (
-    ('minBounds', '3f', 3),
-    ('maxBounds', '3f', 3),
-    ('localOrigin', '3f', 3),
-    ('radius', 'f'),
-    ('name', '16s', 1, string_from_bytes, string_to_bytes),
-))
-
-Tag = AnyStruct('Tag', (
+Skin = AnyStruct('Skin', (
     ('name', '64s', 1, string_from_bytes, string_to_bytes),
-    ('origin', '3f', 3),
-    ('axis', '9f', 9),
-))
-
-Shader = AnyStruct('Shader', (
-    ('name', '64s', 1, string_from_bytes, string_to_bytes),
-    ('index', 'i'),
-))
-
-Triangle = AnyStruct('Triangle', (
-    ('a', 'i'),
-    ('b', 'i'),
-    ('c', 'i'),
 ))
 
 TexCoord = AnyStruct('TexCoord', (
+    ('s', 'h'),
+    ('t', 'h')
+))
+
+Tri = AnyStruct('Tri', (
+    ('vertex', '3H', 3),
+    ('st', '3H', 3)
+))
+
+Vert = AnyStruct('Vert', (
+    ('v', '3B', 3),
+    ('normalIndex', 'B')
+))
+
+Frame = AnyStruct('Frame', (
+    ('scale', '3f', 3),
+    ('translate', '3f', 3),
+    ('name', '16s', 1, string_from_bytes, string_to_bytes)
+# Should be list of vertices here using nVerts
+))
+
+GlCmd = AnyStruct('GlCmd', (
     ('s', 'f'),
-    ('t', 'f', 1, texcoord_inverted, texcoord_inverted),
+    ('t', 'f'),
+    ('index', 'i')
 ))
 
-Vertex = AnyStruct('Vertex', (
-    ('x', 'h', 1, decode_vertex, encode_vertex),
-    ('y', 'h', 1, decode_vertex, encode_vertex),
-    ('z', 'h', 1, decode_vertex, encode_vertex),
-    ('normal', '2s', 1, decode_normal, encode_normal),
-))
-
-
-MAGIC = b'IDP3'
-VERSION = 15
+MAGIC = b'IDP2'
+VERSION = 8
