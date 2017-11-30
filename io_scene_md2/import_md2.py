@@ -18,25 +18,26 @@ import os.path
 from . import fmt_md2 as fmt
 
 
-#def guess_texture_filepath(modelpath, imagepath):
-#    fileexts = ('', '.png', '.tga', '.jpg', '.jpeg')
-#    modelpath = os.path.normpath(os.path.normcase(modelpath))
-#    modeldir, _ = os.path.split(modelpath)
-#    imagedir, imagename = os.path.split(os.path.normpath(os.path.normcase(imagepath)))
-#    previp = None
-#    ip = imagedir
-#    while ip != previp:
-#        if ip in modeldir:
-#            pos = modeldir.rfind(ip)
-#            nameguess = os.path.join(modeldir[:pos + len(ip)], imagedir[len(ip):], imagename)
-#            for ext in fileexts:
-#                yield nameguess + ext
-#        previp = ip
-#        ip, _ = os.path.split(ip)
-#    nameguess = os.path.join(modeldir, imagename)
-#    for ext in fileexts:
-#        yield nameguess + ext
-#
+def guess_texture_filepath(modelpath, imagepath):
+    fileexts = ('', '.png', '.tga', '.jpg', '.jpeg')
+    modelpath = os.path.normpath(os.path.normcase(modelpath))
+    modeldir, _ = os.path.split(modelpath)
+    imagedir, imagename = os.path.split(os.path.normpath(os.path.normcase(imagepath)))
+    imagename = os.path.splitext(imagename)[0]
+    previp = None
+    ip = imagedir
+    while ip != previp:
+        if ip in modeldir:
+            pos = modeldir.rfind(ip)
+            nameguess = os.path.join(modeldir[:pos + len(ip)], imagedir[len(ip):], imagename)
+            for ext in fileexts:
+                yield nameguess + ext
+        previp = ip
+        ip, _ = os.path.split(ip)
+    nameguess = os.path.join(modeldir, imagename)
+    for ext in fileexts:
+        yield nameguess + ext
+
 #
 #def get_tag_matrix_basis(data):
 #    basis = mathutils.Matrix.Identity(4)
@@ -47,6 +48,7 @@ from . import fmt_md2 as fmt
 
 class MD2Importer:
     def __init__(self, context):
+        self.filename = None
         self.context = context
         self.vertices = []
         self.anorms = [[ -0.525731,  0.000000,  0.850651 ], 
@@ -234,6 +236,10 @@ class MD2Importer:
     def read_texcoord(self, i):
         return self.unpack(fmt.TexCoord)
 
+    def read_surface_ST(self, i):
+        data = self.read_texcoord(i)
+        return (data.s/self.header.skinwidth, data.t/self.header.skinheight)
+
     def read_tri(self, i):
         return self.unpack(fmt.Tri)
 
@@ -243,18 +249,32 @@ class MD2Importer:
     def render_frame(self):
         #start_pos = self.file.tell()
         start_pos = 0
+        
         self.mesh = bpy.data.meshes.new('Test')
         self.mesh.vertices.add(count=self.header.nVerts)
         self.mesh.polygons.add(count=self.header.nTris)
         self.mesh.loops.add(count=self.header.nTris * 3)
+        
         self.read_n_items(self.header.nTris, start_pos + self.header.offTris, self.render_frame_tri)
+        
         self.verts = self.mesh.vertices
         self.read_n_items(self.header.nFrames, start_pos + self.header.offFrames, self.render_frame_vert)
+         
         self.mesh.update(calc_edges=True)
         self.mesh.validate()
+        
         self.read_n_items(self.header.nFrames, start_pos + self.header.offFrames, self.render_frame_normals)
+        
         self.material = bpy.data.materials.new('Main')
         self.mesh.materials.append(self.material)
+        self.mesh.uv_textures.new('UVMap')
+        self.make_surface_UV_map(
+            self.read_n_items(self.header.nTexCoords, start_pos + self.header.offTexCoords, self.read_surface_ST),
+            self.read_n_items(self.header.nTris, start_pos + self.header.offTris, self.read_tri),
+            self.mesh.uv_layers['UVMap'].data)
+
+        self.read_n_items(self.header.nSkins, start_pos + self.header.offSkins, self.read_surface_skin)
+#
         obj = bpy.data.objects.new('Test', self.mesh)
         self.context.scene.objects.link(obj)
         self.file.seek(start_pos + self.header.offEnd)
@@ -278,7 +298,7 @@ class MD2Importer:
         for j in range(len(data[1])):
             for k in range(3):
                 v[k] = data[0].translate[k] + data[0].scale[k]*data[1][j].v[k]
-            self.verts[i].co = mathutils.Vector((data[1][j].v[0], 
+            self.verts[j].co = mathutils.Vector((data[1][j].v[0], 
                 data[1][j].v[1], 
                 data[1][j].v[2]))
 
@@ -286,7 +306,34 @@ class MD2Importer:
         data = self.read_frame(i)
         for j in range(len(data[1])): 
             normalIndex = data[1][j].normalIndex
-            self.verts[i].normal = mathutils.Vector(self.anorms[normalIndex])
+            self.verts[j].normal = mathutils.Vector(self.anorms[normalIndex])
+
+    def read_surface_skin(self, i):
+        data = self.unpack(fmt.Skin)
+
+        texture = bpy.data.textures.new(data.name, 'IMAGE')
+        texture_slot = self.material.texture_slots.create(i)
+        texture_slot.uv_layer = 'UVMap'
+        texture_slot.use = True
+        texture_slot.texture_coords = 'UV'
+        texture_slot.texture = texture
+        for fname in guess_texture_filepath(self.filename, data.name):
+            if '\0' in fname:  # preventing ValuError: embedded null byte
+                continue
+            if os.path.isfile(fname):
+                image = bpy.data.images.load(fname)
+                texture.image = image
+                break
+
+    def make_surface_UV_map(self, uv, tri, uvdata):
+        vertex_to_uvidx = [None] * self.header.nVerts 
+        for mytri in tri:
+            for i in range(3):
+                vertex_to_uvidx[mytri.vertex[i]] = mytri.st[i] 
+        for poly in self.mesh.polygons:
+            for i in range(poly.loop_start, poly.loop_start + poly.loop_total):
+                vidx = self.mesh.loops[i].vertex_index
+                uvdata[i].uv = uv[vertex_to_uvidx[vidx]]
 
 #
 #    def create_tag(self, i):
@@ -458,13 +505,13 @@ class MD2Importer:
             self.context.scene.frame_start = 0
             self.context.scene.frame_end = self.header.nFrames - 1
 
-            self.skins = self.read_n_items(self.header.nSkins, self.header.offSkins, self.read_skin)
-            self.texcoords = self.read_n_items(self.header.nTexCoords, self.header.offTexCoords, self.read_texcoord)
+#            self.skins = self.read_n_items(self.header.nSkins, self.header.offSkins, self.read_skin)
+#            self.texcoords = self.read_n_items(self.header.nTexCoords, self.header.offTexCoords, self.read_texcoord)
             #self.tris = self.read_n_items(self.header.nTris, self.header.offTris, self.read_tri)
             # Divide by 3 since actually nGlCmds is raw data but actually
             # structure is batches of 3.
-            self.glcmds = self.read_n_items(self.header.nGlCmds//3, self.header.offGlCmds, self.read_glcmd)
-            self.frames = self.read_n_items(self.header.nFrames, self.header.offFrames, self.read_frame)
+#            self.glcmds = self.read_n_items(self.header.nGlCmds//3, self.header.offGlCmds, self.read_glcmd)
+#            self.frames = self.read_n_items(self.header.nFrames, self.header.offFrames, self.read_frame)
             self.render_frame()
 #            self.tags = self.read_n_items(self.header.nTags, self.header.offTags, self.create_tag)
 #            if self.header.nFrames > 1:
