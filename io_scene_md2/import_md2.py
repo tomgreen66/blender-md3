@@ -238,7 +238,8 @@ class MD2Importer:
 
     def read_surface_ST(self, i):
         data = self.read_texcoord(i)
-        return (data.s/self.header.skinwidth, data.t/self.header.skinheight)
+        #return (data.s/self.header.skinwidth, (1.-data.t)/self.header.skinheight)
+        return (data.s/self.header.skinwidth, 1.-(data.t/self.header.skinheight))
 
     def read_tri(self, i):
         return self.unpack(fmt.Tri)
@@ -298,9 +299,7 @@ class MD2Importer:
         for j in range(len(data[1])):
             for k in range(3):
                 v[k] = data[0].translate[k] + data[0].scale[k]*data[1][j].v[k]
-            self.verts[j].co = mathutils.Vector((data[1][j].v[0], 
-                data[1][j].v[1], 
-                data[1][j].v[2]))
+            self.verts[j].co = mathutils.Vector(v)
 
     def render_frame_normals(self, i):
         data = self.read_frame(i)
