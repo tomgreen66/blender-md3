@@ -238,7 +238,6 @@ class MD2Importer:
 
     def read_surface_ST(self, i):
         data = self.read_texcoord(i)
-        #return (data.s/self.header.skinwidth, (1.-data.t)/self.header.skinheight)
         return (data.s/self.header.skinwidth, 1.-(data.t/self.header.skinheight))
 
     def read_tri(self, i):
@@ -246,12 +245,16 @@ class MD2Importer:
 
     def read_glcmd(self, i):
         return self.unpack(fmt.GlCmd)
+  
+    def read_glcmdtype(self, i):
+        return self.unpack(fmt.GlCmdType)
+
 
     def render_frame(self):
         #start_pos = self.file.tell()
         start_pos = 0
         
-        self.mesh = bpy.data.meshes.new('Test')
+        self.mesh = bpy.data.meshes.new('MD2 Mesh')
         self.mesh.vertices.add(count=self.header.nVerts)
         self.mesh.polygons.add(count=self.header.nTris)
         self.mesh.loops.add(count=self.header.nTris * 3)
@@ -259,7 +262,7 @@ class MD2Importer:
         self.read_n_items(self.header.nTris, start_pos + self.header.offTris, self.render_frame_tri)
         
         self.verts = self.mesh.vertices
-        self.read_n_items(self.header.nFrames, start_pos + self.header.offFrames, self.render_frame_vert)
+        self.read_n_items(1, start_pos + self.header.offFrames, self.render_frame_vert)
          
         self.mesh.update(calc_edges=True)
         self.mesh.validate()
@@ -276,8 +279,12 @@ class MD2Importer:
 
         self.read_n_items(self.header.nSkins, start_pos + self.header.offSkins, self.read_surface_skin)
 #
-        obj = bpy.data.objects.new('Test', self.mesh)
+        obj = bpy.data.objects.new('MD2 Object', self.mesh)
         self.context.scene.objects.link(obj)
+        self.frames = self.read_n_items(self.header.nFrames, start_pos + self.header.offFrames, self.read_frame)
+        if self.header.nFrames > 1:
+            self.read_mesh_animation(obj, self.header, start_pos)
+
         self.file.seek(start_pos + self.header.offEnd)
 #
     def render_frame_tri(self,i):
@@ -290,9 +297,10 @@ class MD2Importer:
         self.mesh.polygons[i].loop_total = 3
         self.mesh.polygons[i].use_smooth = True
 
-    def render_frame_vert(self,i):
+    def render_frame_vert(self,i,data=None):
         # Returns a tuple of (frame, verts)
-        data = self.read_frame(i)
+        if data is None:
+            data = self.read_frame(i)
         # List to store real coords
         v = [None, None, None]
         # Loop across all verts in frame.
@@ -320,19 +328,32 @@ class MD2Importer:
             if '\0' in fname:  # preventing ValuError: embedded null byte
                 continue
             if os.path.isfile(fname):
+                print(fname)
                 image = bpy.data.images.load(fname)
                 texture.image = image
                 break
 
     def make_surface_UV_map(self, uv, tri, uvdata):
-        vertex_to_uvidx = [None] * self.header.nVerts 
-        for mytri in tri:
-            for i in range(3):
-                vertex_to_uvidx[mytri.vertex[i]] = mytri.st[i] 
         for poly in self.mesh.polygons:
+            stindex = tri[poly.loop_start//3].st
             for i in range(poly.loop_start, poly.loop_start + poly.loop_total):
-                vidx = self.mesh.loops[i].vertex_index
-                uvdata[i].uv = uv[vertex_to_uvidx[vidx]]
+                #vidx = self.mesh.loops[i].vertex_index
+                uvdata[i].uv = uv[stindex[i-poly.loop_start]]
+
+    def read_mesh_animation(self, obj, header, start_pos):
+        obj.shape_key_add(name=self.frames[0][0].name)  # adding first frame, which is already loaded
+        self.mesh.shape_keys.use_relative = False
+        # TODO: ensure MD3 has linear frame interpolation
+        for frame in range(1, header.nFrames):  # first frame skipped
+            shape_key = obj.shape_key_add(name=self.frames[frame][0].name)
+            self.verts = shape_key.data
+            self.render_frame_vert(frame, self.frames[frame])
+        bpy.context.scene.objects.active = obj
+        bpy.context.object.active_shape_key_index = 0
+        bpy.ops.object.shape_key_retime()
+        for frame in range(header.nFrames):
+            self.mesh.shape_keys.eval_time = 10.0 * (frame + 1)
+            self.mesh.shape_keys.keyframe_insert('eval_time', frame=frame)
 
 #
 #    def create_tag(self, i):
@@ -498,24 +519,24 @@ class MD2Importer:
             self.header = self.unpack(fmt.Header)
             assert self.header.magic == fmt.MAGIC
             assert self.header.version == fmt.VERSION
-
+            print(self.header)
             bpy.ops.scene.new()
             self.context.scene.name = 'Quake 2 model'
             self.context.scene.frame_start = 0
             self.context.scene.frame_end = self.header.nFrames - 1
+            
+            #print(self.header.nGlCmds)
+            #size = self.read_n_items(1, self.header.offGlCmds, self.read_glcmdtype)
+            #print(size[0].n)
+            #while (size[0].n != 0):
+            #    data = self.read_n_items(abs(size[0].n), None, self.read_glcmd)
+            #    print(data)
+            #    size = self.read_n_items(1, None, self.read_glcmdtype)
+            #    print(size[0].n)
+            
+            #data = self.read_n_items(self.header.nGlCmds//3, self.header.offGlCmds, self.read_glcmd)
+            #print(data)
 
-#            self.skins = self.read_n_items(self.header.nSkins, self.header.offSkins, self.read_skin)
-#            self.texcoords = self.read_n_items(self.header.nTexCoords, self.header.offTexCoords, self.read_texcoord)
-            #self.tris = self.read_n_items(self.header.nTris, self.header.offTris, self.read_tri)
-            # Divide by 3 since actually nGlCmds is raw data but actually
-            # structure is batches of 3.
-#            self.glcmds = self.read_n_items(self.header.nGlCmds//3, self.header.offGlCmds, self.read_glcmd)
-#            self.frames = self.read_n_items(self.header.nFrames, self.header.offFrames, self.read_frame)
             self.render_frame()
-#            self.tags = self.read_n_items(self.header.nTags, self.header.offTags, self.create_tag)
-#            if self.header.nFrames > 1:
-#                self.read_n_items(self.header.nTags * self.header.nFrames, self.header.offTags, self.read_tag_frame)
-#            self.read_n_items(self.header.nSurfaces, self.header.offSurfaces, self.read_surface)
-
         self.post_settings()
 

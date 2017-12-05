@@ -96,5 +96,9 @@ GlCmd = AnyStruct('GlCmd', (
     ('index', 'i')
 ))
 
+GlCmdType = AnyStruct('GlCmdType', (
+    ('n', 'i'),
+))
+
 MAGIC = b'IDP2'
 VERSION = 8
