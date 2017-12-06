@@ -100,7 +100,7 @@ nums = re.compile(r'\.\d{3}$')
 #    return a, b
 
 
-class MD3Exporter:
+class MD2Exporter:
     def __init__(self, context):
         self.context = context
 
